@@ -1,5 +1,4 @@
 import { ulid } from '../utils/ulid'
-import * as emitter from '../utils/emitter'
 import { loadedDomain } from '../utils/page'
 import { domainHash } from '../utils/hash'
 import { expiresInDays } from '../utils/types'
@@ -13,7 +12,7 @@ const DEFAULT_EXPIRATION_DAYS = 730
  * @param {State} state
  * @param {StorageHandler} storageHandler
  */
-export function resolve (state, storageHandler) {
+export function resolve (state, storageHandler, emitter) {
   try {
     console.log('identifiers.resolve', state)
 
