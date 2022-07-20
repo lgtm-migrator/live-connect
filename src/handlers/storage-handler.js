@@ -23,6 +23,7 @@ const _noOp = () => undefined
  *
  * @param {string} storageStrategy
  * @param {ExternalStorageHandler} [externalStorageHandler]
+ * @param {Emitter} [emitter]
  * @return {StorageHandler}
  * @constructor
  */

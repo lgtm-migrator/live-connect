@@ -7,6 +7,7 @@ const DEFAULT_AJAX_TIMEOUT = 0
  * @param {CallHandler} calls
  * @param {function} onload
  * @param {function} presend
+ * @param {function} emitter
  * @returns {{sendAjax: *, sendPixel: *}}
  * @constructor
  */

@@ -42,6 +42,7 @@ function _responseReceived (storageHandler, domain, expirationHours, successCall
  * @param {State} config
  * @param {StorageHandler} storageHandler
  * @param {CallHandler} calls
+ * @param {Emitter} emitter
  * @return {{resolve: function(successCallback: function, errorCallback: function, additionalParams: Object), getUrl: function(additionalParams: Object)}}
  * @constructor
  */

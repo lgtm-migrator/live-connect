@@ -10,6 +10,7 @@ const _noOp = () => undefined
 
 /**
  * @param {CallHandler} externalCallHandler
+ * @param {Emitter} emitter
  * @returns {CallHandler}
  * @constructor
  */

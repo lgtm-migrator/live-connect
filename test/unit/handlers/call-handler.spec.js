@@ -34,13 +34,13 @@ describe('CallHandler', () => {
   it('should return the get function', function () {
     const ajaxGet = () => undefined
     const pixelGet = () => undefined
-    const handler = CallHandler({ ajaxGet: ajaxGet, pixelGet: pixelGet })
+    const handler = CallHandler({ ajaxGet: ajaxGet, pixelGet: pixelGet }, emitter)
 
     expect(handler).to.be.eql({ ajaxGet: ajaxGet, pixelGet: pixelGet })
   })
 
   it('should send an error if an external handler is not provided', function () {
-    CallHandler()
+    CallHandler(undefined, emitter)
 
     expect(emitterErrors.length).to.be.eq(1)
     expect(emitterErrors[0].name).to.be.eq('CallHandler')
@@ -49,7 +49,7 @@ describe('CallHandler', () => {
   })
 
   it('should send an error if an external handler does not have a get function', function () {
-    CallHandler({})
+    CallHandler({}, emitter)
 
     expect(emitterErrors.length).to.be.eq(1)
     expect(emitterErrors[0].name).to.be.eq('CallHandler')
