@@ -24,3 +24,18 @@ export function init (size, errorCallback) {
     errorCallback(e)
   }
 }
+
+export function registerBus (privateBus) {
+  try {
+    console.log('events.bus.init')
+    if (!window) {
+      privateBus.error(new Error('Bus can only be attached to the window, which is not present'))
+    } else {
+      window[C.EVENT_BUS_NAMESPACE] = privateBus
+    }
+    return window[C.EVENT_BUS_NAMESPACE]
+  } catch (e) {
+    console.error('events.bus.init', e)
+    privateBus.error(new Error('Failied to attach message bus to window'))
+  }
+}

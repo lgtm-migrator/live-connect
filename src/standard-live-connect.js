@@ -33,6 +33,7 @@
 import { PixelSender } from './pixel/sender'
 import { Emitter, error as emitErorr } from './utils/emitter'
 import * as errorHandler from './events/error-pixel'
+import { registerBus } from './events/bus'
 import * as C from './utils/consts'
 import { StateWrapper } from './pixel/state'
 import { resolve as idResolve } from './manager/identifiers'
@@ -129,6 +130,7 @@ function _getInitializedLiveConnect (liveConnectConfig) {
  */
 function _standardInitialization (liveConnectConfig, externalStorageHandler, externalCallHandler, emitter) {
   try {
+    registerBus(emitter.bus)
     const callHandler = CallHandler(externalCallHandler, emitter)
     const configWithPrivacy = merge(liveConnectConfig, privacyConfig(liveConnectConfig))
     errorHandler.register(configWithPrivacy, callHandler)
@@ -174,14 +176,12 @@ function _standardInitialization (liveConnectConfig, externalStorageHandler, ext
  * @constructor
  */
 export function StandardLiveConnect (liveConnectConfig, externalStorageHandler, externalCallHandler, messageBus) {
-  // TODO: if no bus is passed in, create a new bus and register it as global
   const emitter = (messageBus && Emitter(messageBus)) || Emitter(new E(5))
-  console.error('This is the emitter error function' + emitter.error)
   console.log('Initializing LiveConnect')
   try {
     const queue = window.liQ || []
     const configuration = (isObject(liveConnectConfig) && liveConnectConfig) || {}
-    window && (window.liQ = _getInitializedLiveConnect(configuration) || _standardInitialization(configuration, externalStorageHandler, externalCallHandler) || queue)
+    window && (window.liQ = _getInitializedLiveConnect(configuration) || _standardInitialization(configuration, externalStorageHandler, externalCallHandler, emitter) || queue)
     if (isArray(queue)) {
       for (let i = 0; i < queue.length; i++) {
         window.liQ.push(queue[i])
@@ -189,6 +189,8 @@ export function StandardLiveConnect (liveConnectConfig, externalStorageHandler, 
     }
   } catch (x) {
     console.error(x)
+    // TODO: if there is already a LC instance, we will not create
+    // a new instance and should emit the error into the global bus.
     emitter.error('LCConstruction', 'Failed to build LC', x)
   }
   return window.liQ
