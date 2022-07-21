@@ -859,11 +859,11 @@ function registerBus(privateBus) {
 }
 function busWithBestLIConfiguration(privateBus) {
   var liConfigs = [];
+  if (window && window[EVENT_BUS_NAMESPACE] && window[EVENT_BUS_NAMESPACE].q && window[EVENT_BUS_NAMESPACE].q.li_config) {
+    liConfigs.push(window[EVENT_BUS_NAMESPACE].q.li_config);
+  }
   if (privateBus && privateBus.q && privateBus.q.li_config) {
     liConfigs.push(privateBus.q.li_config);
-  }
-  if (window && window[EVENT_BUS_NAMESPACE] && window[EVENT_BUS_NAMESPACE].q && window[EVENT_BUS_NAMESPACE].q.li_config) {
-    liConfigs.push(window[EVENT_BUS_NAMESPACE].q.li_config.flat());
   }
   var flattenLiConfigs = liConfigs.flat(Infinity);
   if (flattenLiConfigs && flattenLiConfigs.length > 0) {

@@ -42,12 +42,12 @@ export function registerBus (privateBus) {
 
 export function busWithBestLIConfiguration (privateBus) {
   const liConfigs = []
-  if (privateBus && privateBus.q && privateBus.q.li_config) {
-    liConfigs.push(privateBus.q.li_config)
-  }
 
   if (window && window[C.EVENT_BUS_NAMESPACE] && window[C.EVENT_BUS_NAMESPACE].q && window[C.EVENT_BUS_NAMESPACE].q.li_config) {
-    liConfigs.push(window[C.EVENT_BUS_NAMESPACE].q.li_config.flat())
+    liConfigs.push(window[C.EVENT_BUS_NAMESPACE].q.li_config)
+  }
+  if (privateBus && privateBus.q && privateBus.q.li_config) {
+    liConfigs.push(privateBus.q.li_config)
   }
 
   const flattenLiConfigs = liConfigs.flat(Infinity)
