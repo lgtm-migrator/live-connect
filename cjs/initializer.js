@@ -876,13 +876,13 @@ function busWithBestLIConfiguration(privateBus) {
   if (flattenLiConfigs && flattenLiConfigs.length > 0) {
     for (var i = 0; i < flattenLiConfigs.length; i++) {
       if (flattenLiConfigs[i] && flattenLiConfigs[i].appId) {
-        privateBus.q.li_config = [flattenLiConfigs[i]];
+        privateBus.q.li_config = [[flattenLiConfigs[i]]];
         return privateBus;
       }
     }
-    privateBus.q.li_config = [flattenLiConfigs[0]];
-    return privateBus;
-  } else return privateBus;
+    privateBus.q.li_config = [[flattenLiConfigs[0]]];
+  }
+  return privateBus;
 }
 
 var ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';

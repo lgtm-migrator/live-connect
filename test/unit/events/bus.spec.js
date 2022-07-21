@@ -52,7 +52,7 @@ describe('registerBus', () => {
     bus.registerBus(privateBus)
     const secondBus = window[C.EVENT_BUS_NAMESPACE]
     expect(firstBus).to.not.eql(secondBus)
-    expect(secondBus.q.li_config).to.eql([config])
+    expect(secondBus.q.li_config).to.eql([[config]])
   })
 
   it('should register the private bus with the first configuration that has a defined appId', function () {
@@ -69,7 +69,7 @@ describe('registerBus', () => {
     bus.registerBus(privateBus)
     const secondBus = window[C.EVENT_BUS_NAMESPACE]
     expect(firstBus).to.not.eql(secondBus)
-    expect(secondBus.q.li_config).to.eql([config3])
+    expect(secondBus.q.li_config).to.eql([[config3]])
   })
 })
 
