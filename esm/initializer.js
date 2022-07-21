@@ -99,8 +99,36 @@ function merge(obj1, obj2) {
   return res;
 }
 
+var EVENT_BUS_NAMESPACE = '__li__evt_bus';
+var ERRORS_PREFIX = 'li_errors';
+var PIXEL_SENT_PREFIX = 'lips';
+var PRELOAD_PIXEL = 'pre_lips';
+var PEOPLE_VERIFIED_LS_ENTRY = '_li_duid';
+var DEFAULT_IDEX_EXPIRATION_HOURS = 1;
+var DEFAULT_IDEX_AJAX_TIMEOUT = 5000;
+var DEFAULT_IDEX_URL = 'https://idx.liadm.com/idex';
+
+function _emit(prefix, message) {
+  window && window[EVENT_BUS_NAMESPACE] && window[EVENT_BUS_NAMESPACE].emit(prefix, message);
+}
+function send(prefix, message) {
+  _emit(prefix, message);
+}
+function fromError(name, exception) {
+  error(name, exception.message, exception);
+}
+function error(name, message) {
+  var e = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+  var wrapped = new Error(message || e.message);
+  wrapped.stack = e.stack;
+  wrapped.name = name || 'unknown error';
+  wrapped.lineNumber = e.lineNumber;
+  wrapped.columnNumber = e.columnNumber;
+  _emit(ERRORS_PREFIX, wrapped);
+}
+
 var DEFAULT_AJAX_TIMEOUT = 0;
-function PixelSender(liveConnectConfig, calls, onload, presend, emitter) {
+function PixelSender(liveConnectConfig, calls, onload, presend) {
   var url = liveConnectConfig && liveConnectConfig.collectorUrl || 'https://rp.liadm.com';
   function _sendAjax(state) {
     _sendState(state, 'j', function (uri) {
@@ -109,7 +137,7 @@ function PixelSender(liveConnectConfig, calls, onload, presend, emitter) {
         _callBakers(bakersJson);
       }, function (e) {
         _sendPixel(state);
-        emitter.error('AjaxFailed', e.message, e);
+        error('AjaxFailed', e.message, e);
       }, DEFAULT_AJAX_TIMEOUT);
     });
   }
@@ -122,7 +150,7 @@ function PixelSender(liveConnectConfig, calls, onload, presend, emitter) {
         }
       }
     } catch (e) {
-      emitter.error('CallBakers', 'Error while calling bakers', e);
+      error('CallBakers', 'Error while calling bakers', e);
     }
   }
   function _sendPixel(state) {
@@ -150,58 +178,6 @@ function PixelSender(liveConnectConfig, calls, onload, presend, emitter) {
     sendAjax: _sendAjax,
     sendPixel: _sendPixel
   };
-}
-
-var EVENT_BUS_NAMESPACE = '__li__evt_bus';
-var ERRORS_PREFIX = 'li_errors';
-var PIXEL_SENT_PREFIX = 'lips';
-var PRELOAD_PIXEL = 'pre_lips';
-var PEOPLE_VERIFIED_LS_ENTRY = '_li_duid';
-var DEFAULT_IDEX_EXPIRATION_HOURS = 1;
-var DEFAULT_IDEX_AJAX_TIMEOUT = 5000;
-var DEFAULT_IDEX_URL = 'https://idx.liadm.com/idex';
-
-function Emitter(messageBus) {
-  function _emit(prefix, message) {
-    messageBus.emit(prefix, message);
-  }
-  function _send(prefix, message) {
-    _emit(prefix, message);
-  }
-  function _fromError(name, exception) {
-    error(name, exception.message, exception);
-  }
-  function _error(name, message) {
-    var e = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-    var wrapped = new Error(message || e.message);
-    wrapped.stack = e.stack;
-    wrapped.name = name || 'unknown error';
-    wrapped.lineNumber = e.lineNumber;
-    wrapped.columnNumber = e.columnNumber;
-    _emit(ERRORS_PREFIX, wrapped);
-  }
-  var emitter = {
-    send: _send,
-    fromError: _fromError,
-    error: _error,
-    bus: messageBus
-  };
-  return emitter;
-}
-function _emit(prefix, message) {
-  window && window[EVENT_BUS_NAMESPACE] && window[EVENT_BUS_NAMESPACE].emit(prefix, message);
-}
-function fromError(name, exception) {
-  error(name, exception.message, exception);
-}
-function error(name, message) {
-  var e = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-  var wrapped = new Error(message || e.message);
-  wrapped.stack = e.stack;
-  wrapped.name = name || 'unknown error';
-  wrapped.lineNumber = e.lineNumber;
-  wrapped.columnNumber = e.columnNumber;
-  _emit(ERRORS_PREFIX, wrapped);
 }
 
 function btoa(s) {
@@ -604,7 +580,7 @@ function Query(tuples) {
   };
   return Query;
 }
-function StateWrapper(state, emitter) {
+function StateWrapper(state) {
   var _state = {};
   if (state) {
     _state = _safeFiddle(state);
@@ -622,12 +598,12 @@ function StateWrapper(state, emitter) {
     try {
       return fiddle(JSON.parse(JSON.stringify(newInfo)));
     } catch (e) {
-      emitter.error('StateCombineWith', 'Error while extracting event data', e);
+      error('StateCombineWith', 'Error while extracting event data', e);
       return _state;
     }
   }
   function _combineWith(newInfo) {
-    return new StateWrapper(merge(state, newInfo), emitter);
+    return new StateWrapper(merge(state, newInfo));
   }
   function _asTuples() {
     var array = [];
@@ -856,17 +832,53 @@ E.prototype = {
   }
 };
 
+function init(size, errorCallback) {
+  if (!size) {
+    size = 5;
+  }
+  try {
+    if (!window) {
+      errorCallback(new Error('Bus can only be attached to the window, which is not present'));
+    }
+    if (window && !window[EVENT_BUS_NAMESPACE]) {
+      window[EVENT_BUS_NAMESPACE] = new E(size);
+    }
+    return window[EVENT_BUS_NAMESPACE];
+  } catch (e) {
+    errorCallback(e);
+  }
+}
 function registerBus(privateBus) {
   try {
     if (!window) {
       privateBus.error(new Error('Bus can only be attached to the window, which is not present'));
     } else {
-      window[EVENT_BUS_NAMESPACE] = privateBus;
+      window[EVENT_BUS_NAMESPACE] = busWithBestLIConfiguration(privateBus);
     }
     return window[EVENT_BUS_NAMESPACE];
   } catch (e) {
-    privateBus.error(new Error('Failied to attach message bus to window'));
+    privateBus.error(new Error('Failed to attach message bus to window'));
   }
+}
+function busWithBestLIConfiguration(privateBus) {
+  var liConfigs = [];
+  if (privateBus && privateBus.q && privateBus.q.li_config) {
+    liConfigs.push(privateBus.q.li_config);
+  }
+  if (window && window[EVENT_BUS_NAMESPACE] && window[EVENT_BUS_NAMESPACE].q && window[EVENT_BUS_NAMESPACE].q.li_config) {
+    liConfigs.push(window[EVENT_BUS_NAMESPACE].q.li_config.flat());
+  }
+  var flattenLiConfigs = liConfigs.flat(Infinity);
+  if (flattenLiConfigs && flattenLiConfigs.length > 0) {
+    for (var i = 0; i < flattenLiConfigs.length; i++) {
+      if (flattenLiConfigs[i] && flattenLiConfigs[i].appId) {
+        privateBus.q.li_config = [flattenLiConfigs[i]];
+        return privateBus;
+      }
+    }
+    privateBus.q.li_config = [flattenLiConfigs[0]];
+    return privateBus;
+  } else return privateBus;
 }
 
 var ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -928,7 +940,7 @@ function ulid() {
 var NEXT_GEN_FP_NAME = '_lc2_fpi';
 var TLD_CACHE_KEY = '_li_dcdm_c';
 var DEFAULT_EXPIRATION_DAYS = 730;
-function resolve(state, storageHandler, emitter) {
+function resolve(state, storageHandler) {
   try {
     var determineTld = function determineTld() {
       var cachedDomain = storageHandler.getCookie(TLD_CACHE_KEY);
@@ -957,7 +969,7 @@ function resolve(state, storageHandler, emitter) {
         }
         return storageHandler.get(key);
       } catch (e) {
-        emitter.error('CookieLsGetOrAdd', 'Failed manipulating cookie jar or ls', e);
+        error('CookieLsGetOrAdd', 'Failed manipulating cookie jar or ls', e);
         return null;
       }
     };
@@ -981,7 +993,7 @@ function resolve(state, storageHandler, emitter) {
       peopleVerifiedId: liveConnectIdentifier
     };
   } catch (e) {
-    emitter.error('IdentifiersResolve', 'Error while managing identifiers', e);
+    error('IdentifiersResolve', 'Error while managing identifiers', e);
     return {};
   }
 }
@@ -998,7 +1010,7 @@ var _validUuid = function _validUuid(value) {
 var _nonEmpty = function _nonEmpty(value) {
   return value && trim(value).length > 0;
 };
-function resolve$1(state, storageHandler, emitter) {
+function resolve$1(state, storageHandler) {
   var ret = {};
   function _addDecisionId(key, cookieDomain) {
     if (key) {
@@ -1017,16 +1029,16 @@ function resolve$1(state, storageHandler, emitter) {
       decisionIds: allDecisions
     };
   } catch (e) {
-    emitter.error('DecisionsResolve', 'Error while managing decision ids', e);
+    error('DecisionsResolve', 'Error while managing decision ids', e);
   }
   return ret;
 }
 
-function enrich$1(state, storageHandler, emitter) {
+function enrich$1(state, storageHandler) {
   try {
     return _getIdentifiers(_parseIdentifiersToResolve(state), storageHandler);
   } catch (e) {
-    emitter.fromError('IdentifiersEnricher', e);
+    fromError('IdentifiersEnricher', e);
     return {};
   }
 }
@@ -1094,25 +1106,25 @@ function _cacheKey(additionalParams) {
     return IDEX_STORAGE_KEY;
   }
 }
-function _responseReceived(storageHandler, domain, expirationHours, successCallback, additionalParams, emitter) {
+function _responseReceived(storageHandler, domain, expirationHours, successCallback, additionalParams) {
   return function (response) {
     var responseObj = {};
     if (response) {
       try {
         responseObj = JSON.parse(response);
       } catch (ex) {
-        emitter.fromError('IdentityResolverParser', ex);
+        fromError('IdentityResolverParser', ex);
       }
     }
     try {
       storageHandler.set(_cacheKey(additionalParams), JSON.stringify(responseObj), expiresInHours(expirationHours), domain);
     } catch (ex) {
-      emitter.fromError('IdentityResolverStorage', ex);
+      fromError('IdentityResolverStorage', ex);
     }
     successCallback(responseObj);
   };
 }
-function IdentityResolver(config, storageHandler, calls, emitter) {
+function IdentityResolver(config, storageHandler, calls) {
   try {
     var nonNullConfig = config || {};
     var idexConfig = nonNullConfig.identityResolutionConfig || {};
@@ -1145,7 +1157,7 @@ function IdentityResolver(config, storageHandler, calls, emitter) {
       if (cachedValue) {
         successCallback(JSON.parse(cachedValue));
       } else {
-        calls.ajaxGet(composeUrl(additionalParams), _responseReceived(storageHandler, nonNullConfig.domain, expirationHours, successCallback, additionalParams, emitter), errorCallback, timeout);
+        calls.ajaxGet(composeUrl(additionalParams), _responseReceived(storageHandler, nonNullConfig.domain, expirationHours, successCallback, additionalParams), errorCallback, timeout);
       }
     };
     return {
@@ -1154,7 +1166,7 @@ function IdentityResolver(config, storageHandler, calls, emitter) {
           unsafeResolve(successCallback, errorCallback, additionalParams);
         } catch (e) {
           errorCallback();
-          emitter.fromError('IdentityResolve', e);
+          fromError('IdentityResolve', e);
         }
       },
       getUrl: function getUrl(additionalParams) {
@@ -1162,14 +1174,14 @@ function IdentityResolver(config, storageHandler, calls, emitter) {
       }
     };
   } catch (e) {
-    emitter.fromError('IdentityResolver', e);
+    fromError('IdentityResolver', e);
     return {
       resolve: function resolve(successCallback, errorCallback) {
         errorCallback();
-        emitter.fromError('IdentityResolver.resolve', e);
+        fromError('IdentityResolver.resolve', e);
       },
       getUrl: function getUrl() {
-        emitter.fromError('IdentityResolver.getUrl', e);
+        fromError('IdentityResolver.getUrl', e);
       }
     };
   }
@@ -1185,7 +1197,7 @@ var StorageStrategy = {
 var _noOp = function _noOp() {
   return undefined;
 };
-function StorageHandler(storageStrategy, externalStorageHandler, emitter) {
+function StorageHandler(storageStrategy, externalStorageHandler) {
   var errors = [];
   function _externalOrError(functionName) {
     var hasExternal = externalStorageHandler && externalStorageHandler[functionName] && isFunction(externalStorageHandler[functionName]);
@@ -1211,7 +1223,7 @@ function StorageHandler(storageStrategy, externalStorageHandler, emitter) {
     findSimilarCookies: _externalOrError('findSimilarCookies')
   };
   if (errors.length > 0) {
-    emitter.error('StorageHandler', "The storage functions '".concat(JSON.stringify(errors), "' are not provided"));
+    error('StorageHandler', "The storage functions '".concat(JSON.stringify(errors), "' are not provided"));
   }
   return {
     get: function get(key) {
@@ -1256,7 +1268,7 @@ function StorageHandler(storageStrategy, externalStorageHandler, emitter) {
 var _noOp$1 = function _noOp() {
   return undefined;
 };
-function CallHandler(externalCallHandler, emitter) {
+function CallHandler(externalCallHandler) {
   var errors = [];
   function _externalOrError(functionName) {
     var hasExternal = externalCallHandler && externalCallHandler[functionName] && isFunction(externalCallHandler[functionName]);
@@ -1272,17 +1284,17 @@ function CallHandler(externalCallHandler, emitter) {
     pixelGet: _externalOrError('pixelGet')
   };
   if (errors.length > 0) {
-    emitter.error('CallHandler', "The call functions '".concat(JSON.stringify(errors), "' are not provided"));
+    error('CallHandler', "The call functions '".concat(JSON.stringify(errors), "' are not provided"));
   }
   return handler;
 }
 
 var hemStore = {};
-function _pushSingleEvent(event, pixelClient, enrichedState, emitter) {
+function _pushSingleEvent(event, pixelClient, enrichedState) {
   if (!event || !isObject(event)) {
-    emitter.error('EventNotAnObject', 'Received event was not an object', new Error(event));
+    error('EventNotAnObject', 'Received event was not an object', new Error(event));
   } else if (event.config) {
-    emitter.error('StrayConfig', 'Received a config after LC has already been initialised', new Error(event));
+    error('StrayConfig', 'Received a config after LC has already been initialised', new Error(event));
   } else {
     var combined = enrichedState.combineWith({
       eventSource: event
@@ -1304,20 +1316,20 @@ function _configMatcher(previousConfig, newConfig) {
     };
   }
 }
-function _processArgs(args, pixelClient, enrichedState, emitter) {
+function _processArgs(args, pixelClient, enrichedState) {
   try {
     args.forEach(function (arg) {
       var event = arg;
       if (isArray(event)) {
         event.forEach(function (e) {
-          return _pushSingleEvent(e, pixelClient, enrichedState, emitter);
+          return _pushSingleEvent(e, pixelClient, enrichedState);
         });
       } else {
-        _pushSingleEvent(event, pixelClient, enrichedState, emitter);
+        _pushSingleEvent(event, pixelClient, enrichedState);
       }
     });
   } catch (e) {
-    emitter.error('LCPush', 'Failed sending an event', e);
+    error('LCPush', 'Failed sending an event', e);
   }
 }
 function _getInitializedLiveConnect(liveConnectConfig) {
@@ -1335,37 +1347,37 @@ function _getInitializedLiveConnect(liveConnectConfig) {
   } catch (e) {
   }
 }
-function _standardInitialization(liveConnectConfig, externalStorageHandler, externalCallHandler, emitter) {
+function _standardInitialization(liveConnectConfig, externalStorageHandler, externalCallHandler, messageBus) {
   try {
-    registerBus(emitter.bus);
-    var callHandler = CallHandler(externalCallHandler, emitter);
+    if (messageBus) registerBus(messageBus);else init();
+    var callHandler = CallHandler(externalCallHandler);
     var configWithPrivacy = merge(liveConnectConfig, enrich$2(liveConnectConfig));
     register(configWithPrivacy, callHandler);
     var storageStrategy = configWithPrivacy.privacyMode ? StorageStrategy.disabled : configWithPrivacy.storageStrategy;
-    var storageHandler = StorageHandler(storageStrategy, externalStorageHandler, emitter);
+    var storageHandler = StorageHandler(storageStrategy, externalStorageHandler);
     var reducer = function reducer(accumulator, func) {
-      return accumulator.combineWith(func(accumulator.data, storageHandler, emitter));
+      return accumulator.combineWith(func(accumulator.data, storageHandler));
     };
     var enrichers = [enrich, enrich$1];
     var managers = [resolve, resolve$1];
-    var enrichedState = enrichers.reduce(reducer, new StateWrapper(configWithPrivacy, emitter));
+    var enrichedState = enrichers.reduce(reducer, new StateWrapper(configWithPrivacy));
     var postManagedState = managers.reduce(reducer, enrichedState);
     var syncContainerData = merge(configWithPrivacy, {
       peopleVerifiedId: postManagedState.data.peopleVerifiedId
     });
     var onPixelLoad = function onPixelLoad() {
-      return emitter.send(PIXEL_SENT_PREFIX, syncContainerData);
+      return send(PIXEL_SENT_PREFIX, syncContainerData);
     };
     var onPixelPreload = function onPixelPreload() {
-      return emitter.send(PRELOAD_PIXEL, '0');
+      return send(PRELOAD_PIXEL, '0');
     };
-    var pixelClient = new PixelSender(configWithPrivacy, callHandler, onPixelLoad, onPixelPreload, emitter);
-    var resolver = IdentityResolver(postManagedState.data, storageHandler, callHandler, emitter);
+    var pixelClient = new PixelSender(configWithPrivacy, callHandler, onPixelLoad, onPixelPreload);
+    var resolver = IdentityResolver(postManagedState.data, storageHandler, callHandler);
     var _push = function _push() {
       for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
         args[_key] = arguments[_key];
       }
-      return _processArgs(args, pixelClient, postManagedState, emitter);
+      return _processArgs(args, pixelClient, postManagedState);
     };
     return {
       push: _push,
@@ -1376,44 +1388,42 @@ function _standardInitialization(liveConnectConfig, externalStorageHandler, exte
       ready: true,
       resolve: resolver.resolve,
       resolutionCallUrl: resolver.getUrl,
-      config: liveConnectConfig,
-      bus: emitter.bus
+      config: liveConnectConfig
     };
   } catch (x) {
-    emitter.error('LCConstruction', 'Failed to build LC', x);
+    error('LCConstruction', 'Failed to build LC', x);
   }
 }
 function StandardLiveConnect(liveConnectConfig, externalStorageHandler, externalCallHandler, messageBus) {
-  var emitter = messageBus && Emitter(messageBus) || Emitter(new E(5));
   try {
     var queue = window.liQ || [];
     var configuration = isObject(liveConnectConfig) && liveConnectConfig || {};
-    window && (window.liQ = _getInitializedLiveConnect(configuration) || _standardInitialization(configuration, externalStorageHandler, externalCallHandler, emitter) || queue);
+    window && (window.liQ = _getInitializedLiveConnect(configuration) || _standardInitialization(configuration, externalStorageHandler, externalCallHandler, messageBus) || queue);
     if (isArray(queue)) {
       for (var i = 0; i < queue.length; i++) {
         window.liQ.push(queue[i]);
       }
     }
   } catch (x) {
-    emitter.error('LCConstruction', 'Failed to build LC', x);
+    error('LCConstruction', 'Failed to build LC', x);
   }
   return window.liQ;
 }
 
-function _responseReceived$1(successCallback, emitter) {
+function _responseReceived$1(successCallback) {
   return function (response) {
     var responseObj = {};
     if (response) {
       try {
         responseObj = JSON.parse(response);
       } catch (ex) {
-        emitter.fromError('IdentityResolverParser', ex);
+        fromError('IdentityResolverParser', ex);
       }
     }
     successCallback(responseObj);
   };
 }
-function IdentityResolver$1(config, calls, emitter) {
+function IdentityResolver$1(config, calls) {
   try {
     var nonNullConfig = config || {};
     var idexConfig = nonNullConfig.identityResolutionConfig || {};
@@ -1441,15 +1451,15 @@ function IdentityResolver$1(config, calls, emitter) {
       return "".concat(url, "/").concat(source, "/").concat(publisherId).concat(params);
     };
     var unsafeResolve = function unsafeResolve(successCallback, errorCallback, additionalParams) {
-      calls.ajaxGet(composeUrl(additionalParams), _responseReceived$1(successCallback, emitter), errorCallback, timeout);
+      calls.ajaxGet(composeUrl(additionalParams), _responseReceived$1(successCallback), errorCallback, timeout);
     };
     return {
-      resolve: function resolve(successCallback, errorCallback, additionalParams, emitter) {
+      resolve: function resolve(successCallback, errorCallback, additionalParams) {
         try {
           unsafeResolve(successCallback, errorCallback, additionalParams);
         } catch (e) {
           errorCallback();
-          emitter.fromError('IdentityResolve', e);
+          fromError('IdentityResolve', e);
         }
       },
       getUrl: function getUrl(additionalParams) {
@@ -1457,14 +1467,14 @@ function IdentityResolver$1(config, calls, emitter) {
       }
     };
   } catch (e) {
-    emitter.fromError('IdentityResolver', e);
+    fromError('IdentityResolver', e);
     return {
-      resolve: function resolve(successCallback, errorCallback, emitter) {
+      resolve: function resolve(successCallback, errorCallback) {
         errorCallback();
-        emitter.fromError('IdentityResolver.resolve', e);
+        fromError('IdentityResolver.resolve', e);
       },
       getUrl: function getUrl() {
-        emitter.fromError('IdentityResolver.getUrl', e);
+        fromError('IdentityResolver.getUrl', e);
       }
     };
   }
@@ -1511,7 +1521,7 @@ function _parseIdentifiersToResolve$1(state, storageHandler) {
 var _noOp$2 = function _noOp() {
   return undefined;
 };
-function StorageHandler$1(storageStrategy, externalStorageHandler, emitter) {
+function StorageHandler$1(storageStrategy, externalStorageHandler) {
   var errors = [];
   function _externalOrError(functionName) {
     var hasExternal = externalStorageHandler && externalStorageHandler[functionName] && isFunction(externalStorageHandler[functionName]);
@@ -1533,21 +1543,21 @@ function StorageHandler$1(storageStrategy, externalStorageHandler, emitter) {
     getDataFromLocalStorage: _externalOrError('getDataFromLocalStorage')
   };
   if (errors.length > 0) {
-    emitter.error('StorageHandler', "The storage functions '".concat(JSON.stringify(errors), "' are not provided"));
+    error('StorageHandler', "The storage functions '".concat(JSON.stringify(errors), "' are not provided"));
   }
   return handler;
 }
 
-function _minimalInitialization(liveConnectConfig, externalStorageHandler, externalCallHandler, emitter) {
+function _minimalInitialization(liveConnectConfig, externalStorageHandler, externalCallHandler, messageBus) {
   try {
-    registerBus(emitter.bus);
-    var callHandler = CallHandler(externalCallHandler, emitter);
+    if (messageBus) registerBus(messageBus);else init();
+    var callHandler = CallHandler(externalCallHandler);
     var configWithPrivacy = merge(liveConnectConfig, enrich$2(liveConnectConfig));
     var storageStrategy = configWithPrivacy.privacyMode ? StorageStrategy.disabled : configWithPrivacy.storageStrategy;
-    var storageHandler = StorageHandler$1(storageStrategy, externalStorageHandler, emitter);
+    var storageHandler = StorageHandler$1(storageStrategy, externalStorageHandler);
     var peopleVerifiedData = merge(configWithPrivacy, enrich$3(configWithPrivacy, storageHandler));
     var peopleVerifiedDataWithAdditionalIds = merge(peopleVerifiedData, enrich$4(peopleVerifiedData, storageHandler));
-    var resolver = IdentityResolver$1(peopleVerifiedDataWithAdditionalIds, callHandler, emitter);
+    var resolver = IdentityResolver$1(peopleVerifiedDataWithAdditionalIds, callHandler);
     return {
       push: function push(arg) {
         return window.liQ.push(arg);
@@ -1565,11 +1575,10 @@ function _minimalInitialization(liveConnectConfig, externalStorageHandler, exter
   }
 }
 function MinimalLiveConnect(liveConnectConfig, externalStorageHandler, externalCallHandler, messageBus) {
-  var emitter = messageBus && Emitter(messageBus) || Emitter(new E(5));
   try {
     window && (window.liQ = window.liQ || []);
     var configuration = isObject(liveConnectConfig) && liveConnectConfig || {};
-    return _minimalInitialization(configuration, externalStorageHandler, externalCallHandler, emitter);
+    return _minimalInitialization(configuration, externalStorageHandler, externalCallHandler, messageBus);
   } catch (x) {
   }
   return {};
