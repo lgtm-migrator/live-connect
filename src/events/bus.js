@@ -43,7 +43,6 @@ export function registerBus (privateBus) {
 export function busWithBestLIConfiguration (privateBus) {
   const liConfigs = []
   if (privateBus && privateBus.q && privateBus.q.li_config) {
-    console.log('liConfig >> ' + JSON.stringify(privateBus.q.li_config))
     liConfigs.push(privateBus.q.li_config)
   }
 
