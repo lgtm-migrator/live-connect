@@ -1,5 +1,6 @@
 import { isFunction, strEqualsIgnoreCase } from '../utils/types'
 import { StorageStrategy } from '../model/storage-strategy'
+import * as emitter from '../utils/emitter'
 
 /**
  * @typedef {Object} ExternalStorageHandler
@@ -23,11 +24,10 @@ const _noOp = () => undefined
  *
  * @param {string} storageStrategy
  * @param {ExternalStorageHandler} [externalStorageHandler]
- * @param {Emitter} [emitter]
  * @return {StorageHandler}
  * @constructor
  */
-export function StorageHandler (storageStrategy, externalStorageHandler, emitter) {
+export function StorageHandler (storageStrategy, externalStorageHandler) {
   const errors = []
 
   function _externalOrError (functionName) {

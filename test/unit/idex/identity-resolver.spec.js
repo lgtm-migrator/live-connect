@@ -7,7 +7,6 @@ import * as calls from '../../shared/utils/calls'
 import { init } from '../../../src/events/bus'
 import dirtyChai from 'dirty-chai'
 import { StorageHandler } from '../../../src/handlers/storage-handler'
-import * as emitter from '../../../src/utils/emitter'
 
 use(dirtyChai)
 
@@ -36,7 +35,7 @@ describe('IdentityResolver', () => {
 
   it('should invoke callback on success, store the result in a cookie', function (done) {
     const response = { id: 112233 }
-    const identityResolver = IdentityResolver({}, storage, calls, emitter)
+    const identityResolver = IdentityResolver({}, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(callCount).to.be.eql(1)
       expect(errors).to.be.empty()
@@ -54,7 +53,7 @@ describe('IdentityResolver', () => {
   it('should invoke callback on success, if storing the result in a cookie fails', function () {
     const setCookieStub = sinon.createSandbox().stub(externalStorage, 'setCookie').throws()
     const failedStorage = StorageHandler('cookie', externalStorage)
-    const identityResolver = IdentityResolver({}, failedStorage, calls, emitter)
+    const identityResolver = IdentityResolver({}, failedStorage, calls)
     let jsonResponse = null
     const successCallback = (responseAsJson) => {
       jsonResponse = responseAsJson
@@ -74,7 +73,7 @@ describe('IdentityResolver', () => {
 
   it('should attach the duid', function (done) {
     const response = { id: 112233 }
-    const identityResolver = IdentityResolver({ peopleVerifiedId: '987' }, storage, calls, emitter)
+    const identityResolver = IdentityResolver({ peopleVerifiedId: '987' }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/any?duid=987')
       expect(errors).to.be.empty()
@@ -87,7 +86,7 @@ describe('IdentityResolver', () => {
 
   it('should attach additional params', function (done) {
     const response = { id: 112233 }
-    const identityResolver = IdentityResolver({ peopleVerifiedId: '987' }, storage, calls, emitter)
+    const identityResolver = IdentityResolver({ peopleVerifiedId: '987' }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/any?duid=987&key=value')
       expect(errors).to.be.empty()
@@ -100,7 +99,7 @@ describe('IdentityResolver', () => {
 
   it('should attach additional params with an array that should be serialized as repeated query', function (done) {
     const response = { id: 112233 }
-    const identityResolver = IdentityResolver({ peopleVerifiedId: '987' }, storage, calls, emitter)
+    const identityResolver = IdentityResolver({ peopleVerifiedId: '987' }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/any?duid=987&qf=0.1&resolve=age&resolve=gender')
       expect(errors).to.be.empty()
@@ -113,7 +112,7 @@ describe('IdentityResolver', () => {
 
   it('should attach publisher id', function (done) {
     const response = { id: 112233 }
-    const identityResolver = IdentityResolver({ peopleVerifiedId: '987', identityResolutionConfig: { publisherId: 123 } }, storage, calls, emitter)
+    const identityResolver = IdentityResolver({ peopleVerifiedId: '987', identityResolutionConfig: { publisherId: 123 } }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/123?duid=987&key=value')
       expect(errors).to.be.empty()
@@ -125,7 +124,7 @@ describe('IdentityResolver', () => {
   })
 
   it('should not attach an empty tuple', function (done) {
-    const identityResolver = IdentityResolver({ peopleVerifiedId: null }, storage, calls, emitter)
+    const identityResolver = IdentityResolver({ peopleVerifiedId: null }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/any')
       expect(errors).to.be.empty()
@@ -150,7 +149,7 @@ describe('IdentityResolver', () => {
           value: 'AnotherId'
         }
       ]
-    }, storage, calls, emitter)
+    }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/any?duid=987&pubcid=exexex&some-id=AnotherId')
       expect(errors).to.be.empty()
@@ -168,7 +167,7 @@ describe('IdentityResolver', () => {
       privacyMode: false,
       gdprConsent: 'gdprConsent',
       usPrivacyString: 'usPrivacyString'
-    }, storage, calls, emitter)
+    }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/any?us_privacy=usPrivacyString&gdpr=0&gdpr_consent=gdprConsent')
       expect(errors).to.be.empty()
@@ -186,7 +185,7 @@ describe('IdentityResolver', () => {
       privacyMode: true,
       gdprConsent: 'gdprConsent',
       usPrivacyString: 'usPrivacyString'
-    }, storage, calls, emitter)
+    }, storage, calls)
     const successCallback = (responseAsJson) => {
       expect(requestToComplete.url).to.eq('https://idx.liadm.com/idex/unknown/any?us_privacy=usPrivacyString&gdpr=1&n3pc=1&gdpr_consent=gdprConsent')
       expect(errors).to.be.empty()
@@ -198,7 +197,7 @@ describe('IdentityResolver', () => {
   })
 
   it('should return the default empty response and emit error if response is 500', function (done) {
-    const identityResolver = IdentityResolver({}, storage, calls, emitter)
+    const identityResolver = IdentityResolver({}, storage, calls)
     const errorCallback = (error) => {
       expect(error.message).to.be.eq('Incorrect status received : 500')
       done()
@@ -211,7 +210,7 @@ describe('IdentityResolver', () => {
     const responseMd5 = { id: 123 }
     const responseSha1 = { id: 125 }
 
-    const identityResolver = IdentityResolver({}, storage, calls, emitter)
+    const identityResolver = IdentityResolver({}, storage, calls)
     let jsonResponse = null
     const successCallback = (responseAsJson) => {
       jsonResponse = responseAsJson

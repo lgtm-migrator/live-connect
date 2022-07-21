@@ -1,4 +1,5 @@
 import { isArray, isFunction, asStringParam } from '../utils/types'
+import * as emitter from '../utils/emitter'
 
 const DEFAULT_AJAX_TIMEOUT = 0
 
@@ -7,11 +8,10 @@ const DEFAULT_AJAX_TIMEOUT = 0
  * @param {CallHandler} calls
  * @param {function} onload
  * @param {function} presend
- * @param {function} emitter
  * @returns {{sendAjax: *, sendPixel: *}}
  * @constructor
  */
-export function PixelSender (liveConnectConfig, calls, onload, presend, emitter) {
+export function PixelSender (liveConnectConfig, calls, onload, presend) {
   const url = (liveConnectConfig && liveConnectConfig.collectorUrl) || 'https://rp.liadm.com'
 
   /**

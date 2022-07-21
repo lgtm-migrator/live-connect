@@ -5,7 +5,6 @@ import sinon from 'sinon'
 import jsdom from 'mocha-jsdom'
 import dirtyChai from 'dirty-chai'
 import { StorageHandler } from '../../../src/handlers/storage-handler'
-import * as emitter from '../../../src/utils/emitter'
 
 use(dirtyChai)
 
@@ -56,7 +55,7 @@ describe('IdentifiersManager', () => {
   it('should re-use a first party cookie if it exist', function () {
     const id = 'xxxxx'
     storage.setCookie('_lc2_fpi', id, 400, undefined, '.example.com')
-    const resolutionResult = identifiers.resolve({}, storage, emitter)
+    const resolutionResult = identifiers.resolve({}, storage)
     expect(storage.getCookie('_lc2_fpi')).to.eql(id)
     expect(resolutionResult.liveConnectId).to.eql(id)
   })
@@ -64,19 +63,19 @@ describe('IdentifiersManager', () => {
   it('should emit an error if identifiers.resolve fails for some reason, return an empty object', function () {
     const stub = sandbox.stub(externalStorage, 'getCookie').throws()
     const failedStorage = StorageHandler('cookie', externalStorage)
-    const resolutionResult = identifiers.resolve({}, failedStorage, emitter)
+    const resolutionResult = identifiers.resolve({}, failedStorage)
     expect(resolutionResult).to.eql({})
     stub.restore()
   })
 
   it('should create a first party cookie that starts with apex domain hash', function () {
-    identifiers.resolve({}, storage, emitter)
+    identifiers.resolve({}, storage)
     // apexOfExampleCom = '0caaf24ab1a0'
     expect(storage.getCookie('_lc2_fpi')).to.match(/0caaf24ab1a0--.*/)
   })
 
   it('should create a first party cookie that is lowercased', function () {
-    identifiers.resolve({}, storage, emitter)
+    identifiers.resolve({}, storage)
     expect(storage.getCookie('_lc2_fpi')).to.satisfy(cookie => cookie === cookie.toLowerCase())
   })
 })
@@ -87,13 +86,13 @@ describe('TLD checker', () => {
   })
 
   it('should determine correct tld', function () {
-    const resolved = identifiers.resolve({}, storage, emitter)
+    const resolved = identifiers.resolve({}, storage)
     expect(resolved.domain).to.eq('.example.com')
   })
 
   it('should reuse the cached correct tld', function () {
     storage.setCookie('_li_dcdm_c', '.example.com')
-    const resolved = identifiers.resolve({}, storage, emitter)
+    const resolved = identifiers.resolve({}, storage)
     expect(resolved.domain).to.eq('.example.com')
   })
 })
@@ -104,7 +103,7 @@ describe('TLD on sub-domain', () => {
   })
 
   it('should use the full domain', function () {
-    const resolved = identifiers.resolve({}, storage, emitter)
+    const resolved = identifiers.resolve({}, storage)
     expect(resolved.domain).to.eq('.example.co.uk')
   })
 })

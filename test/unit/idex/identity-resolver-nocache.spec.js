@@ -4,7 +4,6 @@ import { expect, use } from 'chai'
 import { IdentityResolver } from '../../../src/idex/identity-resolver-nocache'
 import * as calls from '../../shared/utils/calls'
 import { init } from '../../../src/events/bus'
-import * as emitter from '../../../src/utils/emitter'
 import dirtyChai from 'dirty-chai'
 
 use(dirtyChai)
@@ -43,7 +42,7 @@ describe('IdentityResolver without cache', () => {
       expect(callCount).to.be.eql(1)
       done()
     }
-    identityResolver.resolve(successCallback, emitter)
+    identityResolver.resolve(successCallback)
     requestToComplete.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify(response))
   })
 
@@ -56,7 +55,7 @@ describe('IdentityResolver without cache', () => {
       expect(responseAsJson).to.be.eql(response)
       done()
     }
-    identityResolver.resolve(successCallback, emitter)
+    identityResolver.resolve(successCallback)
     requestToComplete.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify(response))
   })
 
@@ -69,7 +68,7 @@ describe('IdentityResolver without cache', () => {
       expect(responseAsJson).to.be.eql(response)
       done()
     }
-    identityResolver.resolve(successCallback, () => {}, { key: 'value' }, emitter)
+    identityResolver.resolve(successCallback, () => {}, { key: 'value' })
     requestToComplete.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify(response))
   })
 
@@ -82,7 +81,7 @@ describe('IdentityResolver without cache', () => {
       expect(responseAsJson).to.be.eql(response)
       done()
     }
-    identityResolver.resolve(successCallback, () => {}, { qf: '0.1', resolve: ['age', 'gender'] }, emitter)
+    identityResolver.resolve(successCallback, () => {}, { qf: '0.1', resolve: ['age', 'gender'] })
     requestToComplete.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify(response))
   })
 
@@ -95,7 +94,7 @@ describe('IdentityResolver without cache', () => {
       expect(responseAsJson).to.be.eql(response)
       done()
     }
-    identityResolver.resolve(successCallback, () => {}, { key: 'value' }, emitter)
+    identityResolver.resolve(successCallback, () => {}, { key: 'value' })
     requestToComplete.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify(response))
   })
 
@@ -107,7 +106,7 @@ describe('IdentityResolver without cache', () => {
       expect(responseAsJson).to.be.eql({})
       done()
     }
-    identityResolver.resolve(successCallback, emitter)
+    identityResolver.resolve(successCallback)
     requestToComplete.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify({}))
   })
 

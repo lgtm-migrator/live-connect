@@ -34,7 +34,7 @@ describe('StorageHandler', () => {
   })
 
   it('should send an error if an external handler is not provided', function () {
-    StorageHandler('cookie', undefined, emitter)
+    StorageHandler('cookie')
     expect(emitterErrors.length).to.be.eq(1)
     expect(emitterErrors[0].name).to.be.eq('StorageHandler')
     expect(emitterErrors[0].message).to.be.eq('The storage functions \'["localStorageIsEnabled","getCookie","setCookie","getDataFromLocalStorage","removeDataFromLocalStorage","setDataInLocalStorage","findSimilarCookies"]\' are not provided')
@@ -42,7 +42,7 @@ describe('StorageHandler', () => {
   })
 
   it('should send an error if an external handler is not provided and the storage strategy is none', function () {
-    StorageHandler('none', undefined, emitter)
+    StorageHandler('none')
     expect(emitterErrors.length).to.be.eq(1)
     expect(emitterErrors[0].name).to.be.eq('StorageHandler')
     expect(emitterErrors[0].message).to.be.eq('The storage functions \'["getCookie","getDataFromLocalStorage","findSimilarCookies"]\' are not provided')
@@ -50,12 +50,12 @@ describe('StorageHandler', () => {
   })
 
   it('should not send an error if an external handler is not provided and the storage strategy is disabled', function () {
-    StorageHandler('disabled', undefined, emitter)
+    StorageHandler('disabled')
     expect(emitterErrors.length).to.be.eq(0)
   })
 
   it('should use local storage', function () {
-    const storageHandler = StorageHandler('ls', storage, emitter)
+    const storageHandler = StorageHandler('ls', storage)
     storageHandler.set('key', 'value', expiresInDays(1), 'example.com')
     expect(storageHandler.get('key')).to.be.eq('value')
     expect(storage.getDataFromLocalStorage('key')).to.be.eq('value')
@@ -63,7 +63,7 @@ describe('StorageHandler', () => {
   })
 
   it('should use cookies', function () {
-    const storageHandler = StorageHandler('cookie', storage, emitter)
+    const storageHandler = StorageHandler('cookie', storage)
     storageHandler.set('key', 'value', expiresInDays(1), 'example.com')
     expect(storageHandler.get('key')).to.be.eq('value')
     expect(storage.getCookie('key')).to.be.eq('value')
@@ -71,7 +71,7 @@ describe('StorageHandler', () => {
   })
 
   it('should use cookies when the strategy is not defined', function () {
-    const storageHandler = StorageHandler(null, storage, emitter)
+    const storageHandler = StorageHandler(null, storage)
     storageHandler.set('key', 'value', expiresInDays(1), 'example.com')
     expect(storageHandler.get('key')).to.be.eq('value')
     expect(storage.getCookie('key')).to.be.eq('value')
@@ -79,7 +79,7 @@ describe('StorageHandler', () => {
   })
 
   it('should return nothing when the strategy is none', function () {
-    const storageHandler = StorageHandler('none', storage, emitter)
+    const storageHandler = StorageHandler('none', storage)
     storageHandler.set('key', 'value', expiresInDays(1), 'example.com')
     expect(storageHandler.get('key')).to.be.null()
     expect(storage.getCookie('key')).to.be.null()
@@ -88,7 +88,7 @@ describe('StorageHandler', () => {
   })
 
   it('should return nothing when the strategy is disabled', function () {
-    const storageHandler = StorageHandler('disabled', storage, emitter)
+    const storageHandler = StorageHandler('disabled', storage)
 
     storageHandler.set('key_any', 'value_any', expiresInDays(1), 'example.com')
     storageHandler.setDataInLocalStorage('key_ls', 'value_any')
@@ -105,21 +105,21 @@ describe('StorageHandler', () => {
   })
 
   it('should return nothing when the strategy is ls and the time is in the past', function () {
-    const storageHandler = StorageHandler('ls', storage, emitter)
+    const storageHandler = StorageHandler('ls', storage)
     storageHandler.set('key', 'value', expiresInDays(-1), 'example.com')
     expect(storageHandler.get('key')).to.be.null()
     expect(storage.getDataFromLocalStorage('key')).to.be.null()
   })
 
   it('should return nothing when the strategy is cookie and the time is in the past', function () {
-    const storageHandler = StorageHandler('cookie', storage, emitter)
+    const storageHandler = StorageHandler('cookie', storage)
     storageHandler.set('key', 'value', expiresInDays(-1), 'example.com')
     expect(storageHandler.get('key')).to.be.null()
     expect(storage.getCookie('key')).to.be.null()
   })
 
   it('should return nothing when the strategy is undefined and the time is in the past', function () {
-    const storageHandler = StorageHandler(null, storage, emitter)
+    const storageHandler = StorageHandler(null, storage)
     storageHandler.set('key', 'value', expiresInDays(-1), 'example.com')
     expect(storageHandler.get('key')).to.be.null()
     expect(storage.getCookie('key')).to.be.null()

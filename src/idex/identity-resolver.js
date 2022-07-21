@@ -1,4 +1,5 @@
 import { toParams } from '../utils/url'
+import { fromError } from '../utils/emitter'
 import { expiresInHours, asParamOrEmpty, asStringParamWhen, asStringParam, mapAsParams } from '../utils/types'
 import { DEFAULT_IDEX_EXPIRATION_HOURS, DEFAULT_IDEX_AJAX_TIMEOUT, DEFAULT_IDEX_URL } from '../utils/consts'
 import { base64UrlEncode } from '../utils/b64'
@@ -14,7 +15,7 @@ function _cacheKey (additionalParams) {
   }
 }
 
-function _responseReceived (storageHandler, domain, expirationHours, successCallback, additionalParams, emitter) {
+function _responseReceived (storageHandler, domain, expirationHours, successCallback, additionalParams) {
   return response => {
     let responseObj = {}
     if (response) {
@@ -22,7 +23,7 @@ function _responseReceived (storageHandler, domain, expirationHours, successCall
         responseObj = JSON.parse(response)
       } catch (ex) {
         console.error('Error parsing response', ex)
-        emitter.fromError('IdentityResolverParser', ex)
+        fromError('IdentityResolverParser', ex)
       }
     }
     try {
@@ -32,7 +33,7 @@ function _responseReceived (storageHandler, domain, expirationHours, successCall
         expiresInHours(expirationHours),
         domain)
     } catch (ex) {
-      emitter.fromError('IdentityResolverStorage', ex)
+      fromError('IdentityResolverStorage', ex)
     }
     successCallback(responseObj)
   }
@@ -42,11 +43,10 @@ function _responseReceived (storageHandler, domain, expirationHours, successCall
  * @param {State} config
  * @param {StorageHandler} storageHandler
  * @param {CallHandler} calls
- * @param {Emitter} emitter
  * @return {{resolve: function(successCallback: function, errorCallback: function, additionalParams: Object), getUrl: function(additionalParams: Object)}}
  * @constructor
  */
-export function IdentityResolver (config, storageHandler, calls, emitter) {
+export function IdentityResolver (config, storageHandler, calls) {
   try {
     const nonNullConfig = config || {}
     const idexConfig = nonNullConfig.identityResolutionConfig || {}
@@ -76,7 +76,7 @@ export function IdentityResolver (config, storageHandler, calls, emitter) {
       if (cachedValue) {
         successCallback(JSON.parse(cachedValue))
       } else {
-        calls.ajaxGet(composeUrl(additionalParams), _responseReceived(storageHandler, nonNullConfig.domain, expirationHours, successCallback, additionalParams, emitter), errorCallback, timeout)
+        calls.ajaxGet(composeUrl(additionalParams), _responseReceived(storageHandler, nonNullConfig.domain, expirationHours, successCallback, additionalParams), errorCallback, timeout)
       }
     }
     return {
@@ -86,21 +86,21 @@ export function IdentityResolver (config, storageHandler, calls, emitter) {
         } catch (e) {
           console.error('IdentityResolve', e)
           errorCallback()
-          emitter.fromError('IdentityResolve', e)
+          fromError('IdentityResolve', e)
         }
       },
       getUrl: (additionalParams) => composeUrl(additionalParams)
     }
   } catch (e) {
     console.error('IdentityResolver', e)
-    emitter.fromError('IdentityResolver', e)
+    fromError('IdentityResolver', e)
     return {
       resolve: (successCallback, errorCallback) => {
         errorCallback()
-        emitter.fromError('IdentityResolver.resolve', e)
+        fromError('IdentityResolver.resolve', e)
       },
       getUrl: () => {
-        emitter.fromError('IdentityResolver.getUrl', e)
+        fromError('IdentityResolver.getUrl', e)
       }
     }
   }

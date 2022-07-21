@@ -1,4 +1,5 @@
 import { isFunction } from '../utils/types'
+import * as emitter from '../utils/emitter'
 
 /**
  * @typedef {Object} CallHandler
@@ -10,11 +11,10 @@ const _noOp = () => undefined
 
 /**
  * @param {CallHandler} externalCallHandler
- * @param {Emitter} emitter
  * @returns {CallHandler}
  * @constructor
  */
-export function CallHandler (externalCallHandler, emitter) {
+export function CallHandler (externalCallHandler) {
   const errors = []
 
   function _externalOrError (functionName) {

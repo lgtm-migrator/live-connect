@@ -37,6 +37,7 @@
  * @property {StorageManager} storageHandler
  */
 
+import * as emitter from '../utils/emitter'
 import { base64UrlEncode } from '../utils/b64'
 import { replacer } from './stringify'
 import { fiddle } from './fiddler'
@@ -200,7 +201,7 @@ export function Query (tuples) {
  * @returns {StateWrapper}
  * @constructor
  */
-export function StateWrapper (state, emitter) {
+export function StateWrapper (state) {
   /**
    * @type {State}
    */
@@ -234,7 +235,7 @@ export function StateWrapper (state, emitter) {
    * @private
    */
   function _combineWith (newInfo) {
-    return new StateWrapper(merge(state, newInfo), emitter)
+    return new StateWrapper(merge(state, newInfo))
   }
 
   /**
