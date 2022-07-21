@@ -31,7 +31,7 @@
  */
 
 import { PixelSender } from './pixel/sender'
-import { Emitter, error as emitErorr } from './utils/emitter'
+import { Emitter, error as emitError } from './utils/emitter'
 import * as errorHandler from './events/error-pixel'
 import { registerBus } from './events/bus'
 import * as C from './utils/consts'
@@ -112,7 +112,7 @@ function _getInitializedLiveConnect (liveConnectConfig) {
         const error = new Error()
         error.name = 'ConfigSent'
         error.message = 'Additional configuration received'
-        emitErorr('LCDuplication', JSON.stringify(mismatchedConfig), error)
+        emitError('LCDuplication', JSON.stringify(mismatchedConfig), error)
       }
       return window.liQ
     }

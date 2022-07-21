@@ -1,16 +1,15 @@
 import { toParams } from '../utils/url'
-import { fromError } from '../utils/emitter'
 import { asParamOrEmpty, asStringParamWhen, asStringParam, mapAsParams } from '../utils/types'
 import { DEFAULT_IDEX_AJAX_TIMEOUT, DEFAULT_IDEX_URL } from '../utils/consts'
 
-function _responseReceived (successCallback) {
+function _responseReceived (successCallback, emitter) {
   return response => {
     let responseObj = {}
     if (response) {
       try {
         responseObj = JSON.parse(response)
       } catch (ex) {
-        fromError('IdentityResolverParser', ex)
+        emitter.fromError('IdentityResolverParser', ex)
       }
     }
     successCallback(responseObj)
@@ -23,7 +22,7 @@ function _responseReceived (successCallback) {
  * @return {{resolve: function(successCallback: function, errorCallback: function, additionalParams: Object), getUrl: function(additionalParams: Object)}}
  * @constructor
  */
-export function IdentityResolver (config, calls) {
+export function IdentityResolver (config, calls, emitter) {
   try {
     const nonNullConfig = config || {}
     const idexConfig = nonNullConfig.identityResolutionConfig || {}
@@ -48,29 +47,29 @@ export function IdentityResolver (config, calls) {
       return `${url}/${source}/${publisherId}${params}`
     }
     const unsafeResolve = (successCallback, errorCallback, additionalParams) => {
-      calls.ajaxGet(composeUrl(additionalParams), _responseReceived(successCallback), errorCallback, timeout)
+      calls.ajaxGet(composeUrl(additionalParams), _responseReceived(successCallback, emitter), errorCallback, timeout)
     }
     return {
-      resolve: (successCallback, errorCallback, additionalParams) => {
+      resolve: (successCallback, errorCallback, additionalParams, emitter) => {
         try {
           unsafeResolve(successCallback, errorCallback, additionalParams)
         } catch (e) {
           errorCallback()
-          fromError('IdentityResolve', e)
+          emitter.fromError('IdentityResolve', e)
         }
       },
       getUrl: (additionalParams) => composeUrl(additionalParams)
     }
   } catch (e) {
     console.error('IdentityResolver', e)
-    fromError('IdentityResolver', e)
+    emitter.fromError('IdentityResolver', e)
     return {
-      resolve: (successCallback, errorCallback) => {
+      resolve: (successCallback, errorCallback, emitter) => {
         errorCallback()
-        fromError('IdentityResolver.resolve', e)
+        emitter.fromError('IdentityResolver.resolve', e)
       },
       getUrl: () => {
-        fromError('IdentityResolver.getUrl', e)
+        emitter.fromError('IdentityResolver.getUrl', e)
       }
     }
   }

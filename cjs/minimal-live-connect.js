@@ -84,23 +84,39 @@ function merge(obj1, obj2) {
   return res;
 }
 
-var toParams = function toParams(tuples) {
-  var acc = '';
-  tuples.forEach(function (tuple) {
-    var operator = acc.length === 0 ? '?' : '&';
-    if (tuple && tuple.length && tuple.length === 2 && tuple[0] && tuple[1]) {
-      acc = "".concat(acc).concat(operator).concat(tuple[0], "=").concat(tuple[1]);
-    }
-  });
-  return acc;
-};
-
 var EVENT_BUS_NAMESPACE = '__li__evt_bus';
 var ERRORS_PREFIX = 'li_errors';
 var PEOPLE_VERIFIED_LS_ENTRY = '_li_duid';
 var DEFAULT_IDEX_AJAX_TIMEOUT = 5000;
 var DEFAULT_IDEX_URL = 'https://idx.liadm.com/idex';
 
+function Emitter(messageBus) {
+  function _emit(prefix, message) {
+    messageBus.emit(prefix, message);
+  }
+  function _send(prefix, message) {
+    _emit(prefix, message);
+  }
+  function _fromError(name, exception) {
+    error(name, exception.message, exception);
+  }
+  function _error(name, message) {
+    var e = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+    var wrapped = new Error(message || e.message);
+    wrapped.stack = e.stack;
+    wrapped.name = name || 'unknown error';
+    wrapped.lineNumber = e.lineNumber;
+    wrapped.columnNumber = e.columnNumber;
+    _emit(ERRORS_PREFIX, wrapped);
+  }
+  var emitter = {
+    send: _send,
+    fromError: _fromError,
+    error: _error,
+    bus: messageBus
+  };
+  return emitter;
+}
 function _emit(prefix, message) {
   window && window[EVENT_BUS_NAMESPACE] && window[EVENT_BUS_NAMESPACE].emit(prefix, message);
 }
@@ -117,20 +133,31 @@ function error(name, message) {
   _emit(ERRORS_PREFIX, wrapped);
 }
 
-function _responseReceived(successCallback) {
+var toParams = function toParams(tuples) {
+  var acc = '';
+  tuples.forEach(function (tuple) {
+    var operator = acc.length === 0 ? '?' : '&';
+    if (tuple && tuple.length && tuple.length === 2 && tuple[0] && tuple[1]) {
+      acc = "".concat(acc).concat(operator).concat(tuple[0], "=").concat(tuple[1]);
+    }
+  });
+  return acc;
+};
+
+function _responseReceived(successCallback, emitter) {
   return function (response) {
     var responseObj = {};
     if (response) {
       try {
         responseObj = JSON.parse(response);
       } catch (ex) {
-        fromError('IdentityResolverParser', ex);
+        emitter.fromError('IdentityResolverParser', ex);
       }
     }
     successCallback(responseObj);
   };
 }
-function IdentityResolver(config, calls) {
+function IdentityResolver(config, calls, emitter) {
   try {
     var nonNullConfig = config || {};
     var idexConfig = nonNullConfig.identityResolutionConfig || {};
@@ -158,15 +185,15 @@ function IdentityResolver(config, calls) {
       return "".concat(url, "/").concat(source, "/").concat(publisherId).concat(params);
     };
     var unsafeResolve = function unsafeResolve(successCallback, errorCallback, additionalParams) {
-      calls.ajaxGet(composeUrl(additionalParams), _responseReceived(successCallback), errorCallback, timeout);
+      calls.ajaxGet(composeUrl(additionalParams), _responseReceived(successCallback, emitter), errorCallback, timeout);
     };
     return {
-      resolve: function resolve(successCallback, errorCallback, additionalParams) {
+      resolve: function resolve(successCallback, errorCallback, additionalParams, emitter) {
         try {
           unsafeResolve(successCallback, errorCallback, additionalParams);
         } catch (e) {
           errorCallback();
-          fromError('IdentityResolve', e);
+          emitter.fromError('IdentityResolve', e);
         }
       },
       getUrl: function getUrl(additionalParams) {
@@ -174,14 +201,14 @@ function IdentityResolver(config, calls) {
       }
     };
   } catch (e) {
-    fromError('IdentityResolver', e);
+    emitter.fromError('IdentityResolver', e);
     return {
-      resolve: function resolve(successCallback, errorCallback) {
+      resolve: function resolve(successCallback, errorCallback, emitter) {
         errorCallback();
-        fromError('IdentityResolver.resolve', e);
+        emitter.fromError('IdentityResolver.resolve', e);
       },
       getUrl: function getUrl() {
-        fromError('IdentityResolver.getUrl', e);
+        emitter.fromError('IdentityResolver.getUrl', e);
       }
     };
   }
@@ -260,6 +287,81 @@ function enrich$2(state) {
   } else return {};
 }
 
+function E(replaySize) {
+  this.size = parseInt(replaySize) || 5;
+  this.h = {};
+  this.q = {};
+}
+E.prototype = {
+  on: function on(name, callback, ctx) {
+    (this.h[name] || (this.h[name] = [])).push({
+      fn: callback,
+      ctx: ctx
+    });
+    var eventQueueLen = (this.q[name] || []).length;
+    for (var i = 0; i < eventQueueLen; i++) {
+      callback.apply(ctx, this.q[name][i]);
+    }
+    return this;
+  },
+  once: function once(name, callback, ctx) {
+    var self = this;
+    var eventQueue = this.q[name] || [];
+    if (eventQueue.length > 0) {
+      callback.apply(ctx, eventQueue[0]);
+      return this;
+    } else {
+      var listener = function listener() {
+        self.off(name, listener);
+        callback.apply(ctx, arguments);
+      };
+      listener._ = callback;
+      return this.on(name, listener, ctx);
+    }
+  },
+  emit: function emit(name) {
+    var data = [].slice.call(arguments, 1);
+    var evtArr = (this.h[name] || []).slice();
+    var i = 0;
+    var len = evtArr.length;
+    for (i; i < len; i++) {
+      evtArr[i].fn.apply(evtArr[i].ctx, data);
+    }
+    var eventQueue = this.q[name] || (this.q[name] = []);
+    if (eventQueue.length >= this.size) {
+      eventQueue.shift();
+    }
+    eventQueue.push(data);
+    return this;
+  },
+  off: function off(name, callback) {
+    var handlers = this.h[name];
+    var liveEvents = [];
+    if (handlers && callback) {
+      for (var i = 0, len = handlers.length; i < len; i++) {
+        if (handlers[i].fn !== callback && handlers[i].fn._ !== callback) {
+          liveEvents.push(handlers[i]);
+        }
+      }
+    }
+    liveEvents.length ? this.h[name] = liveEvents : delete this.h[name];
+    return this;
+  }
+};
+
+function registerBus(privateBus) {
+  try {
+    if (!window) {
+      privateBus.error(new Error('Bus can only be attached to the window, which is not present'));
+    } else {
+      window[EVENT_BUS_NAMESPACE] = privateBus;
+    }
+    return window[EVENT_BUS_NAMESPACE];
+  } catch (e) {
+    privateBus.error(new Error('Failied to attach message bus to window'));
+  }
+}
+
 var StorageStrategy = {
   cookie: 'cookie',
   localStorage: 'ls',
@@ -270,7 +372,7 @@ var StorageStrategy = {
 var _noOp = function _noOp() {
   return undefined;
 };
-function StorageHandler(storageStrategy, externalStorageHandler) {
+function StorageHandler(storageStrategy, externalStorageHandler, emitter) {
   var errors = [];
   function _externalOrError(functionName) {
     var hasExternal = externalStorageHandler && externalStorageHandler[functionName] && isFunction(externalStorageHandler[functionName]);
@@ -292,7 +394,7 @@ function StorageHandler(storageStrategy, externalStorageHandler) {
     getDataFromLocalStorage: _externalOrError('getDataFromLocalStorage')
   };
   if (errors.length > 0) {
-    error('StorageHandler', "The storage functions '".concat(JSON.stringify(errors), "' are not provided"));
+    emitter.error('StorageHandler', "The storage functions '".concat(JSON.stringify(errors), "' are not provided"));
   }
   return handler;
 }
@@ -300,7 +402,7 @@ function StorageHandler(storageStrategy, externalStorageHandler) {
 var _noOp$1 = function _noOp() {
   return undefined;
 };
-function CallHandler(externalCallHandler) {
+function CallHandler(externalCallHandler, emitter) {
   var errors = [];
   function _externalOrError(functionName) {
     var hasExternal = externalCallHandler && externalCallHandler[functionName] && isFunction(externalCallHandler[functionName]);
@@ -316,20 +418,21 @@ function CallHandler(externalCallHandler) {
     pixelGet: _externalOrError('pixelGet')
   };
   if (errors.length > 0) {
-    error('CallHandler', "The call functions '".concat(JSON.stringify(errors), "' are not provided"));
+    emitter.error('CallHandler', "The call functions '".concat(JSON.stringify(errors), "' are not provided"));
   }
   return handler;
 }
 
-function _minimalInitialization(liveConnectConfig, externalStorageHandler, externalCallHandler) {
+function _minimalInitialization(liveConnectConfig, externalStorageHandler, externalCallHandler, emitter) {
   try {
-    var callHandler = CallHandler(externalCallHandler);
+    registerBus(emitter.bus);
+    var callHandler = CallHandler(externalCallHandler, emitter);
     var configWithPrivacy = merge(liveConnectConfig, enrich$2(liveConnectConfig));
     var storageStrategy = configWithPrivacy.privacyMode ? StorageStrategy.disabled : configWithPrivacy.storageStrategy;
-    var storageHandler = StorageHandler(storageStrategy, externalStorageHandler);
+    var storageHandler = StorageHandler(storageStrategy, externalStorageHandler, emitter);
     var peopleVerifiedData = merge(configWithPrivacy, enrich(configWithPrivacy, storageHandler));
     var peopleVerifiedDataWithAdditionalIds = merge(peopleVerifiedData, enrich$1(peopleVerifiedData, storageHandler));
-    var resolver = IdentityResolver(peopleVerifiedDataWithAdditionalIds, callHandler);
+    var resolver = IdentityResolver(peopleVerifiedDataWithAdditionalIds, callHandler, emitter);
     return {
       push: function push(arg) {
         return window.liQ.push(arg);
@@ -346,11 +449,12 @@ function _minimalInitialization(liveConnectConfig, externalStorageHandler, exter
   } catch (x) {
   }
 }
-function MinimalLiveConnect(liveConnectConfig, externalStorageHandler, externalCallHandler) {
+function MinimalLiveConnect(liveConnectConfig, externalStorageHandler, externalCallHandler, messageBus) {
+  var emitter = messageBus && Emitter(messageBus) || Emitter(new E(5));
   try {
     window && (window.liQ = window.liQ || []);
     var configuration = isObject(liveConnectConfig) && liveConnectConfig || {};
-    return _minimalInitialization(configuration, externalStorageHandler, externalCallHandler);
+    return _minimalInitialization(configuration, externalStorageHandler, externalCallHandler, emitter);
   } catch (x) {
   }
   return {};
