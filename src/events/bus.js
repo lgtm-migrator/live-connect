@@ -1,4 +1,4 @@
-import E from './replayemitter'
+import { E } from './replayemitter'
 import * as C from '../utils/consts'
 
 /**

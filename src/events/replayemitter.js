@@ -6,14 +6,14 @@
  * @property {(function)} off
  */
 
-export default function E (replaySize) {
-  this.size = parseInt(replaySize) || 5
-  this.h = {}
-  this.q = {}
-}
+export class E {
+  constructor (replaySize) {
+    this.size = parseInt(replaySize) || 5
+    this.h = {}
+    this.q = {}
+  }
 
-E.prototype = {
-  on: function (name, callback, ctx) {
+  on (name, callback, ctx) {
     (this.h[name] || (this.h[name] = [])).push({
       fn: callback,
       ctx: ctx
@@ -25,9 +25,9 @@ E.prototype = {
     }
 
     return this
-  },
+  }
 
-  once: function (name, callback, ctx) {
+  once (name, callback, ctx) {
     const self = this
 
     const eventQueue = this.q[name] || []
@@ -44,9 +44,9 @@ E.prototype = {
       listener._ = callback
       return this.on(name, listener, ctx)
     }
-  },
+  }
 
-  emit: function (name) {
+  emit (name) {
     const data = [].slice.call(arguments, 1)
     const evtArr = (this.h[name] || []).slice()
     let i = 0
@@ -63,9 +63,9 @@ E.prototype = {
     eventQueue.push(data)
 
     return this
-  },
+  }
 
-  off: function (name, callback) {
+  off (name, callback) {
     const handlers = this.h[name]
     const liveEvents = []
 
